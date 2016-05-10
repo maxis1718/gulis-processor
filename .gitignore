@@ -20,7 +20,10 @@ build/
 env/
 eggs/
 
+# nosetest
+.coverage
 
 # Byte-compiled / optimized
 __pycache__/
+*.pyc
 
