@@ -30,8 +30,15 @@ def get_element_text(element, default=''):
     """
     return element is not None and element.text or default
 
+def decorate_strip(f):
+    def d_f(*args, **kargs):
+        return f(*args, **kargs).strip()
+    return d_f
+
+@decorate_strip
 def get_element_content(element, attr=False, default=''):
     if not attr or attr is '':
         return get_element_text(element, default=default)
     elif attr:
         return get_element_attr(element, attr=attr, default=default)
+
