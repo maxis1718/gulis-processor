@@ -5,6 +5,7 @@ from urlparse import urljoin
 from collections import namedtuple
 import json
 import bs4
+import os
 from bs4 import BeautifulSoup
 from itertools import izip
 
@@ -101,20 +102,24 @@ def collect_prev_btn_link(soup):
     prev_btn_link = urljoin('https://www.ptt.cc', prev_btn.attrs['href'])
     return prev_btn_link
 
+def get_page_url(link):
+    return link.split('/')[-1]
+
 if __name__ == '__main__':
 
     LOCAL_DUMP = True
     LOCAL_DUMP_PATH = '../data/post/'
 
     ### process list
-    soup = BeautifulSoup(open('../data/list/index1217.html'), 'html')
+    soup = BeautifulSoup(open('../data/list/index1217.html'), 'lxml')
 
     raw_post_info_list = collect_raw_post_info_list(soup)
     prev_btn_link = collect_prev_btn_link(soup)
 
     for raw_post_info in raw_post_info_list:
 
-        link = raw_post_info['link'] # https://www.ptt.cc/bbs/Beauty/M.1409577963.A.997.html
+        # link: https://www.ptt.cc/bbs/Beauty/M.1409553672.A.301.html
+        link = raw_post_info['link']
 
         # if(LOCAL_DUMP) {
         #     path = os.path.join(LOCAL_DUMP_PATH, os.path.split(link)[1])
@@ -122,16 +127,21 @@ if __name__ == '__main__':
         # } else {
         #     soup = BeautifulSoup(crawl(link))
         # }
+        print '> link:', link
+
+        page_url = get_page_url(link)
 
         ### process post
-        soup = BeautifulSoup(open('../data/post/M.1409577963.A.997.html'), 'html')
+        soup = BeautifulSoup(open(os.path.join('..', 'data', 'post', page_url)), 'lxml')
 
         raw_meta = collect_raw_meta(soup)
         content = collect_content(soup)
         images = collect_images(soup)
         pushes = collect_pushs(soup)
 
-        # print json.dumps(collect_raw_meta(article_tree), indent=2, ensure_ascii=False)
-        # print json.dumps(collect_content(article_tree), indent=2, ensure_ascii=False)
-        # print json.dumps(collect_images(article_tree), indent=2, ensure_ascii=False)
-        # print json.dumps(collect_pushs(article_tree), indent=2, ensure_ascii=False)
+        if len(images):
+            print '>> raw_meta', json.dumps(raw_meta, indent=2)
+            print '>> content', json.dumps(content, indent=2)
+            print '>> images', json.dumps(images, indent=2)
+            print '>> pushes', json.dumps(pushes, indent=2)
+            raw_input()
