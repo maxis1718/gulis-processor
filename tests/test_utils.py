@@ -11,29 +11,9 @@ def teardown_func():
     "tear down test fixtures"
 
 @with_setup(setup_func, teardown_func)
-def test_querySelectorAll():
-    dom = html.fromstring(
-        """
-        <div class="wrap">
-            <div href="/foo/bar">some text</div>
-        </div>
-        """
-    )
-    assert len(utils.querySelectorAll(dom, 'div')) == 2
-
-def test_querySelector():
-    dom = html.fromstring(
-        """
-        <div class="wrap">
-            <a href="/foo/bar">some text</a>
-        </div>
-        """
-    )
-    wrap = utils.querySelector(dom, '.wrap')
-    a = utils.querySelector(dom, 'a')
-    assert wrap.tag == 'div'
-    assert 'href' in a.attrib
-    assert a.text == 'some text'
+def test_get_page_url():
+    link = '../data/list/index1217.html'
+    assert utils.get_page_url(link) == 'index1217.html'
 
 def test_get_element_attr_with_attr():
     dom = html.fromstring('<a href="/foo/bar">some text</a>')
