@@ -1,15 +1,17 @@
 # coding: utf-8
 
-from lxml.cssselect import CSSSelector
-from pydash.objects import get
+import requests
 
-def querySelectorAll(tree, css):
-    sel = CSSSelector(css)
-    return sel(tree)
+def crawl(url):
+    """
+    article list > https://www.ptt.cc/bbs/Beauty/index1700.html
+    article > https://www.ptt.cc/bbs/Beauty/M.1453477203.A.D04.html
+    """
+    res = requests.get(url)
+    return res.text
 
-def querySelector(tree, css):
-    doms = querySelectorAll(tree, css)
-    return get(doms, 0)
+def get_page_url(link):
+    return link.split('/')[-1]
 
 def get_element_attr(element, attr, default=''):
     """
