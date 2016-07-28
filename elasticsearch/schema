@@ -1,0 +1,79 @@
+PUT /gulis
+
+PUT /gulis/_mapping/article
+{
+    "properties" : {
+        "author" : {
+            "type" : "string",
+            "index": "not_analyzed"
+        },
+        "article_time" : {
+            "type" : "date"
+        },
+        "update_time" : {
+            "type" : "date"
+        },
+        "link" : {
+            "type" : "string",
+            "index": "not_analyzed"
+        },
+        "board" : {
+            "type" : "string",
+            "index": "not_analyzed"
+        },
+        "title" : {
+            "type" : "string",
+            "analyzer" : "cjk"
+        },
+        "content" : {
+            "type" :   "string",
+            "analyzer" : "cjk"
+        },
+        "images" : {
+            "properties": {
+                "link" : {
+                    "type" : "string",
+                    "index": "not_analyzed"
+                },
+                "views" : { 
+                    "type" : "integer"
+                }
+            }
+        },
+        "pushes" : {
+            "properties" : {
+                "userid" : {
+                    "type" : "string",
+                    "index": "not_analyzed"
+                },
+                "method" : {
+                    "type" : "string",
+                    "index": "not_analyzed"
+                },
+                "content" : { 
+                    "type" : "string",
+                    "analyzer" : "cjk"
+                },
+                "date" : {
+                    "type" : "date"
+                }
+            }
+        },
+        "thumbups" : {
+            "type" :   "integer"
+        },
+        "historical_thumbups" : {
+            "properties" : {
+                "thumbups" : {
+                    "type" : "integer"
+                },
+                "date" : {
+                    "type" : "date"
+                }
+            }
+        },
+        "views" : {
+            "type" :   "integer"
+        }
+    }
+}
