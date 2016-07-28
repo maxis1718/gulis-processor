@@ -6,104 +6,110 @@ from collections import namedtuple
 import json
 import bs4
 import os
+import utils
 from bs4 import BeautifulSoup
 from itertools import izip
 
-def crawl(url):
+class Processor(object):
+    def __init__(self, soup):
+        self.soup = soup
+
+    def get_text(self, element):
+        return element.text.strip()
+
+class PostProcessor(Processor):
     """
-    article list > https://www.ptt.cc/bbs/Beauty/index1700.html
-    article > https://www.ptt.cc/bbs/Beauty/M.1453477203.A.D04.html
+    docstring for PostProcessor
     """
-    res = requests.get(url)
-    return res.text
+    def __init__(self, soup):
+        super(PostProcessor, self).__init__(soup)
 
-def get_text(element):
-    return element.text.strip()
+    def collect_raw_meta(self):
+        """
+        { 
+          '作者': 'gaiaesque (一起來浸水桶吧)',
+          '看板': 'Beauty',
+          '標題': '[正妹] 平祐奈 甜美正妹',
+          '時間': 'Thu Oct 22 22:30:31 2015'
+        }
+        """
+        keys = map(self.get_text, self.soup.select('#main-content .article-meta-tag'))
+        vals = map(self.get_text, self.soup.select('#main-content .article-meta-value'))
 
-def collect_raw_meta(soup):
-    """
-    { 
-      '作者': 'gaiaesque (一起來浸水桶吧)',
-      '看板': 'Beauty',
-      '標題': '[正妹] 平祐奈 甜美正妹',
-      '時間': 'Thu Oct 22 22:30:31 2015'
-    }
-    """
-    keys = map(get_text, soup.select('#main-content .article-meta-tag'))
-    vals = map(get_text, soup.select('#main-content .article-meta-value'))
+        return {} if len(keys) != len(vals) else dict(zip(keys, vals))
 
-    return {} if len(keys) != len(vals) else dict(zip(keys, vals))
+    def collect_content(self):
+        """
+        find and concatenate unwrapped strings
+        """
+        return ''.join(filter(lambda x:type(x) == bs4.element.NavigableString, self.soup.select_one('#main-content').contents))
 
-def collect_content(soup):
-    """
-    find and concatenate unwrapped strings
-    """
-    return ''.join(filter(lambda x:type(x) == bs4.element.NavigableString, soup.select_one('#main-content').contents))
+    def collect_images(self, protocol='http'):
+        """
+        [
+            'http://i.imgur.com/ijXPYqV.jpg',
+            'http://i.imgur.com/eMwxfm2.jpg',
+            'http://i.imgur.com/7zcr6vq.jpg'
+        ]
+        """
+        imgs = self.soup.select('.richcontent img')
+        return map(lambda img: '' if 'src' not in img.attrs else protocol+':'+img.attrs['src'], imgs)
 
-def collect_images(soup, protocol='http'):
-    """
-    [
-        'http://i.imgur.com/ijXPYqV.jpg',
-        'http://i.imgur.com/eMwxfm2.jpg',
-        'http://i.imgur.com/7zcr6vq.jpg'
-    ]
-    """
-    imgs = soup.select('.richcontent img')
-    return map(lambda img: '' if 'src' not in img.attrs else protocol+':'+img.attrs['src'], imgs)
+    def collect_pushs(self):
+        """
+        {
+            'content': u'竟然在表特看到',
+            'tag': u'推',
+            'userid': u'LemonUrsus',
+            'ipdatetime': u' 09/01 22:13'
+        }
+        """
+        keys = ('tag', 'userid', 'content', 'ipdatetime')
 
-def collect_pushs(soup):
-    """
-    {
-        'content': u'竟然在表特看到',
-        'tag': u'推',
-        'userid': u'LemonUrsus',
-        'ipdatetime': u' 09/01 22:13'
-    }
-    """
-    keys = ('tag', 'userid', 'content', 'ipdatetime')
+        tags = map(self.get_text, self.soup.select('.push .push-tag'))
+        userids = map(self.get_text, self.soup.select('.push .push-userid'))
+        contents = map(self.get_text, self.soup.select('.push .push-content'))
+        ipdatetimes = map(self.get_text, self.soup.select('.push .push-ipdatetime'))
 
-    tags = map(get_text, soup.select('.push .push-tag'))
-    userids = map(get_text, soup.select('.push .push-userid'))
-    contents = map(get_text, soup.select('.push .push-content'))
-    ipdatetimes = map(get_text, soup.select('.push .push-ipdatetime'))
+        return [ dict(zip(keys, push)) for push in izip(tags, userids, contents, ipdatetimes) ]
 
-    return [ dict(zip(keys, push)) for push in izip(tags, userids, contents, ipdatetimes) ]
+class ListingProcessor(Processor):
 
-def collect_raw_post_info_list(soup):
-    """
-    {
-        'author': u'MissBB',
-        'date': u' 9/02',
-        'link': 'https://www.ptt.cc/bbs/Beauty/M.1409646948.A.F45.html',
-        'mark': u'',
-        'push': u'21',
-        'title': u'[神人] 宮原眼科冰淇淋女孩'
-    }
-    """
-    sections = soup.select('.r-ent')
-    keys = ['push', 'mark', 'title', 'date', 'author']
-    classNames = ['.nrec', '.mark', '.title a', '.meta .date', '.meta .author']
-    post_info_list = []
-    for section in sections:
-        info = dict(zip(keys, (section.select_one(className).text for className in classNames)))
-        info['link'] = urljoin('https://www.ptt.cc', section.select_one('.title a').attrs['href'])
+    def __init__(self, soup):
+        super(ListProcessor, self).__init__(soup)
 
-        # artifact
-        # TODO: convert date to datetime object
-        # TODO: convert mark to boolean
-        # TODO: convert push to integer
+    def collect_raw_post_info_list(self):
+        """
+        {
+            'author': u'MissBB',
+            'date': u' 9/02',
+            'link': 'https://www.ptt.cc/bbs/Beauty/M.1409646948.A.F45.html',
+            'mark': u'',
+            'push': u'21',
+            'title': u'[神人] 宮原眼科冰淇淋女孩'
+        }
+        """
+        sections = self.soup.select('.r-ent')
+        keys = ['push', 'mark', 'title', 'date', 'author']
+        classNames = ['.nrec', '.mark', '.title a', '.meta .date', '.meta .author']
+        post_info_list = []
+        for section in sections:
+            info = dict(zip(keys, (section.select_one(className).text for className in classNames)))
+            info['link'] = urljoin('https://www.ptt.cc', section.select_one('.title a').attrs['href'])
 
-        post_info_list.append(info)
+            # artifact
+            # TODO: convert date to datetime object
+            # TODO: convert mark to boolean
+            # TODO: convert push to integer
 
-    return post_info_list
+            post_info_list.append(info)
 
-def collect_prev_btn_link(soup):
-    prev_btn = soup.select('.btn-group-paging .btn')[2]
-    prev_btn_link = urljoin('https://www.ptt.cc', prev_btn.attrs['href'])
-    return prev_btn_link
+        return post_info_list
 
-def get_page_url(link):
-    return link.split('/')[-1]
+    def collect_prev_btn_link(self):
+        prev_btn = self.soup.select('.btn-group-paging .btn')[2]
+        prev_btn_link = urljoin('https://www.ptt.cc', prev_btn.attrs['href'])
+        return prev_btn_link
 
 if __name__ == '__main__':
 
@@ -113,8 +119,10 @@ if __name__ == '__main__':
     ### process list
     soup = BeautifulSoup(open('../data/list/index1217.html'), 'lxml')
 
-    raw_post_info_list = collect_raw_post_info_list(soup)
-    prev_btn_link = collect_prev_btn_link(soup)
+    listing = ListingProcessor(soup)
+
+    raw_post_info_list = listing.collect_raw_post_info_list()
+    prev_btn_link = listing.collect_prev_btn_link()
 
     for raw_post_info in raw_post_info_list:
 
@@ -129,15 +137,17 @@ if __name__ == '__main__':
         # }
         print '> link:', link
 
-        page_url = get_page_url(link)
+        page_url = utils.get_page_url(link)
 
         ### process post
         soup = BeautifulSoup(open(os.path.join('..', 'data', 'post', page_url)), 'lxml')
 
-        raw_meta = collect_raw_meta(soup)
-        content = collect_content(soup)
-        images = collect_images(soup)
-        pushes = collect_pushs(soup)
+        post = PostProcessor(soup)
+
+        raw_meta = post.collect_raw_meta()
+        content = post.collect_content()
+        images = post.collect_images()
+        pushes = post.collect_pushs()
 
         if len(images):
             print '>> raw_meta', json.dumps(raw_meta, indent=2)
